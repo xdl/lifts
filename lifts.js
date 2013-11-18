@@ -14,20 +14,21 @@ var init = function() {
 
 var initialiseElevators = function() {
 
-	var el = exportRoot.panel_a;
-	var car = exportRoot.car_a;
-	var ele = new Elevator({ele:el, carriage: car, name: "elevator_a"});
-	elevators.push(ele);
+	console.log('central.elevators:', central.elevators);
 
-	//el = exportRoot.panel_b;
-	//car = exportRoot.car_b;
-	//ele = new Elevator({ele:el, carriage: car, name: "elevator_b"});
-	//elevators.push(ele);
+	central.elevators.a = new Elevator(
+		{ele:exportRoot.panel_a,carriage:exportRoot.car_a,shaft: 'a'}
+	);
 
-	//el = exportRoot.panel_c;
-	//car = exportRoot.car_c;
-	//var ele = new Elevator({ele:el, carriage: car, name: "elevator_c"});
-	//elevators.push(ele);
+	central.elevators.b = new Elevator(
+		{ele:exportRoot.panel_b,carriage:exportRoot.car_b,shaft: 'b'}
+	);
+
+	central.elevators.c = new Elevator(
+		{ele:exportRoot.panel_c,carriage:exportRoot.car_c,shaft: 'c'}
+	);
+
+	console.log('central.elevators:', central.elevators);
 };
 
 var floorMarkers = [57.2,105.2,153.2,201.2,249.2,297.2];
@@ -41,43 +42,35 @@ var getFloorPosition = function(x) {
 	return false;
 }
 
-var floors = [];
-
-var elevators = [];
-
 var initialiseFloors = function() {
+	
+	var fls = central.floors;
 
-	var fl = exportRoot.floor1a;
-	floors.push(new Floor({floor:fl}));
+	fls.a = [];
+	fls.b = [];
+	fls.c = [];
 
-	fl = exportRoot.floor2a;
-	floors.push(new Floor({floor:fl}));
+	var floor_a = [exportRoot.floor1a, exportRoot.floor2a, exportRoot.floor3a, exportRoot.floor4a, exportRoot.floor5a, exportRoot.floor6a];
+	var floor_b = [exportRoot.floor1b, exportRoot.floor2b, exportRoot.floor3b, exportRoot.floor4b, exportRoot.floor5b, exportRoot.floor6b];
+	var floor_c = [exportRoot.floor1c, exportRoot.floor2c, exportRoot.floor3c, exportRoot.floor4c, exportRoot.floor5c, exportRoot.floor6c];
 
-	fl = exportRoot.floor3a;
-	floors.push(new Floor({floor:fl}));
+	for (var i = 0; i < floor_a.length; i++) {
+		fls.a.push(new Floor({floor:floor_a[i], shaft: 'a', number: i+1}));
+		fls.b.push(new Floor({floor:floor_b[i], shaft: 'b', number: i+1}));
+		fls.c.push(new Floor({floor:floor_c[i], shaft: 'c', number: i+1}));
+	}
 
-	fl = exportRoot.floor4a;
-	floors.push(new Floor({floor:fl}));
 
-	fl = exportRoot.floor5a;
-	floors.push(new Floor({floor:fl}));
-
-	fl = exportRoot.floor6a;
-	floors.push(new Floor({floor:fl}));
+	console.log('central.floors:', central.floors);
 
 };
 
 
-var rememberFloor = function(i) {
-	return function() {
-	}
-}
-var closeFloorReminder = function(i) {
+var closeFloorReminder = function(i,shaft) {
 	//create closure:
 	return function() {
-		console.log('i:', i);
-		if (central.floors[i].status == 'open') {
-			central.floors[i].close();
+		if (central.floors[shaft][i].status == 'open') {
+			central.floors[shaft][i].close();
 		}
 	};
 }
@@ -86,81 +79,95 @@ var tickHandler = function() {
 
 	var curr_label;
 	//handling floor opening/closing animations:
-	for (var i = central.floors.length - 1; i >= 0; i--) {
-		curr_label = central.floors[i].graphic.doors.getCurrentLabel();
-		
-		//if the door has just been opened, or if a to_open flag is set:
-		if (curr_label == 'opened' || (curr_label == 'open' && elevators[0].to_close == true)) {
-			if (elevators[0].to_close == true) {
-				central.floors[i].close();
-				elevators[0].closeOff(); //toggles it
-			}
-			else {
-				central.floors[i].graphic.doors.gotoAndStop('open');
-				central.floors[i].status = 'open';
-				//make sure it closes:
-				setTimeout(closeFloorReminder(i),1000);
-			}
-		}
+	for (var shaft in central.floors) {
+		if (central.floors.hasOwnProperty(shaft)) {
+			var fl = central.floors[shaft];
+			for (var i = fl.length - 1; i >= 0; i--) {
+				var el = central.elevators[shaft];
 
-		//if the door has just been closed, or if a to_close flag is set:
-		else if (curr_label == 'closed' || (curr_label == 'close' && elevators[0].to_open == true && i == elevators[0].current-1) ) {
-			if (elevators[0].to_open == true) {
-				central.floors[i].open();
-				elevators[0].openOff(); //toggles it
-			}
-			else {
-				central.floors[i].status = 'close';
-				central.floors[i].graphic.doors.gotoAndStop('close');
+				curr_label = fl[i].graphic.doors.getCurrentLabel();
+
+				//if the door has just been opened, or if a to_open flag is set:
+				if (curr_label == 'opened' || (curr_label == 'open' && el.to_close == true)) {
+					if (el.to_close == true) {
+						fl[i].close();
+						el.closeOff(); //toggles it
+					}
+					else {
+						fl[i].graphic.doors.gotoAndStop('open');
+						fl[i].status = 'open';
+						//make sure it closes:
+						setTimeout(closeFloorReminder(i,shaft),1000);
+					}
+				}
+
+				//if the door has just been closed, or if a to_close flag is set:
+				else if (curr_label == 'closed' || (curr_label == 'close' && el.to_open == true && i == el.current-1) ) {
+					if (el.to_open == true) {
+						fl[i].open();
+						el.openOff(); //toggles it
+					}
+					else {
+						fl[i].status = 'close';
+						fl[i].graphic.doors.gotoAndStop('close');
+					}
+				}
 			}
 		}
 	}
+	
 
 	var curr_status;
 	var relevant_door;
 	var el;
 	//iterating through elevators:
-	for (i = elevators.length - 1; i >= 0; i--) {
-		el = elevators[i];
-		
-		curr_status = el.status;
-		curr_position = el.carriage.y;
-		relevant_door = central.floors[el.current-1];
-		//console.log('el.current-1:', el.current-1);
-		//console.log('relevant_door:', relevant_door);
-		//console.log('el.current-1:', el.current-1);
-		floor_check = getFloorPosition(curr_position);
+	for (var ele in central.elevators) {
+		if (central.elevators.hasOwnProperty(ele)) {
 
-		//moving them:
-		el.carriage.y += el.speed;
+			el = central.elevators[ele];
+			var shaft = el.shaft;
 
-		//if stationary:
-		if (el.speed == 0 && relevant_door.status == 'close') {
-			//for new instructions:
-			if (el.current == el.target && el.instructions.length != 0) {
-				el.target = el.instructions.shift();
+			curr_status = el.status;
+			curr_position = el.carriage.y;
+			relevant_door = central.floors[shaft][el.current-1];
+			floor_check = getFloorPosition(curr_position);
+
+			//moving them:
+			el.carriage.y += el.speed;
+
+			//if stationary:
+			if (el.speed == 0 && relevant_door.status == 'close') {
+				//for new instructions:
+				if (el.current == el.target && el.instructions.length != 0) {
+					el.target = el.instructions.shift();
+				}
+				else if(el.current == el.target && central.floor_requests != 0) {
+					el.target = central.floor_requests[0];
+				}
+
+				//for resuming instructions:
+				if (el.target > el.current) {
+					el.goUp();
+				}
+				else if (el.target < el.current) {
+					el.goDown();
+				}
 			}
-			else if(el.current == el.target && central.floor_requests != 0) {
-				el.target = central.floor_requests[0];
+
+			//for when it has just arrived at a floor:
+			if (floor_check != false && el.speed != 0) {
+				//in case of precision:
+				el.y = floor_check;
+
+				//constructing hardware message:
+				var message = {};
+				message.floor = floor_check;
+				message.el = el.shaft;
+				central.trigger('CARRIAGE_AT_FLOOR', message);
 			}
-			
-			//for resuming instructions:
-			if (el.target > el.current) {
-				el.goUp();
-			}
-			else if (el.target < el.current) {
-				el.goDown();
-			}
+
 		}
-		
-		//for when it has just arrived at a floor:
-		if (floor_check != false && el.speed != 0) {
-			var message = {};
-			message.floor = floor_check;
-			message.el = el.name;
-			central.trigger('CARRIAGE_AT_FLOOR', message);
-		}
-		
+
 	}
 
 	stage.update();

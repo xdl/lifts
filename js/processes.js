@@ -6,12 +6,22 @@ var Elevator = Backbone.View.extend({
 	//speed: int,
 	//to_open: bool,
 	//to_close:bool,
-	instructions: [],
-	buttons: [],
+	//instructions: [],
+	//buttons: [],
 	
 	initialize: function(options) {
 		this.graphic = options.ele;
 		this.carriage = options.carriage;
+
+		this.instructions = [];
+		this.buttons = [];
+
+		//binding registration purposes:
+		this.shaft = options.shaft;
+
+		//console.log('this.shaft:', this.shaft);
+		console.log('this.buttons:', this.buttons);
+		//this.buttons = [];
 
 		this.buttons.push(this.graphic.one);
 		this.buttons.push(this.graphic.two);
@@ -21,10 +31,12 @@ var Elevator = Backbone.View.extend({
 		this.buttons.push(this.graphic.six);
 
 		for (var i = this.buttons.length-1; i >= 0; i--) {
-			this.buttons[i].addEventListener('click', this.emit);
+			this.buttons[i].addEventListener('click', $.proxy(this.emit, this));
+			//console.log('added listener to ', this.shaft, i);
 			this.buttons[i].cursor = 'pointer';
 			this.buttons[i].bkg.stop();
 		}
+
 
 		this.graphic.close.addEventListener('click', $.proxy(this.close, this));
 		this.graphic.open.addEventListener('click', $.proxy(this.open, this));
@@ -36,10 +48,6 @@ var Elevator = Backbone.View.extend({
 		this.graphic.close.cursor = 'pointer';
 		this.graphic.open.cursor = 'pointer';
 
-		//binding registration purposes:
-		this.graphic.bbview = this;
-		this.name = options.name;
-		central.registerElevator(options.name, this);
 
 		//initialising:
 		this.target = 1;
@@ -56,11 +64,11 @@ var Elevator = Backbone.View.extend({
 		btn.bkg.gotoAndStop('off');
 	},
 	emit: function(e) {
-		//console.log('e:', e);
 		var message = {};
 		var floor = e.currentTarget.children[1].text;
+		console.log('floor:', floor);
 		message.floor = Number(floor);
-		message.name = e.currentTarget.parent.bbview.name;
+		message.shaft = this.shaft;
 		central.trigger('FLOOR_BUTTON_PRESSED', message);
 	},
 	goDown: function() {
@@ -75,7 +83,7 @@ var Elevator = Backbone.View.extend({
 	//only works if elevator is stationary
 	open: function() {
 		if (this.speed == 0) {
-			var floor_status = floors[this.current-1].status;
+			var floor_status = central.floors[this.shaft][this.current-1].status;
 			if (floor_status == 'close' || floor_status == 'closing') {
 				this.to_open = true;
 				this.graphic.open.gotoAndStop('on');
@@ -88,7 +96,7 @@ var Elevator = Backbone.View.extend({
 	},
 	close: function() {
 		if (this.speed == 0) {
-			var floor_status = floors[this.current-1].status;
+			var floor_status = central.floors[this.shaft][this.current-1].status;
 			if (floor_status == 'open' || floor_status == 'opening') {
 				this.to_close = true;
 				this.graphic.close.gotoAndStop('on');
@@ -103,12 +111,8 @@ var Elevator = Backbone.View.extend({
 
 var Central = Backbone.View.extend({
 	elevators: {},
-	floors: [],
+	floors: {},
 	floor_requests: [],
-	registerElevator: function(name, ele) {
-		ele[name] = name;
-		this.elevators[name] = ele;
-	},
 	registerFloor: function(floor) {
 		this.floors.push(floor);
 	},
@@ -137,33 +141,39 @@ var Central = Backbone.View.extend({
 				this.floors[m.floor-1].toggleRequest();
 			}
 			ele.stop();
-			this.floors[ele.current-1].open();
+			this.floors[m.el][ele.current-1].open();
 		}
 	},
 	processFloorRequest:function(e) {
+		console.log('uhh... this doesn\'t actually do anything!');
 		console.log('message:', e);
 	},
 	processFloorButton:function(e) {
 
-		var elevator = this.elevators[e.name];
-		var instructions = this.elevators[e.name].instructions;
+		console.log('e:', e);
+
+		var elevator = this.elevators[e.shaft];
+		console.log('elevator:', elevator);
+		var instructions = this.elevators[e.shaft].instructions;
 		var floor = e.floor;
+		var shaft = e.shaft
 		if (_.indexOf(instructions, floor) == -1) {
 
 			//open it if the elevator is 'idle' and not moving anywhere.
 			if (elevator.current == floor && elevator.speed == 0) {
-				this.floors[floor-1].open();
+				this.floors[shaft][floor-1].open();
 			} else {
 
 				var state = elevator.buttons[e.floor-1].bkg.getCurrentLabel();
 
 				elevator.light_up(e.floor);
 				instructions.push(e.floor);
+				console.log('this.elevators.a.instructions:', this.elevators.a.instructions);
 			}
 		} else {
 			//cancel it!
 			elevator.light_off(e.floor);
-			this.elevators[e.name].instructions = _.without(instructions, e.floor);
+			this.elevators[e.shaft].instructions = _.without(instructions, e.floor);
 		}
 	}
 });
@@ -172,8 +182,9 @@ var Floor = Backbone.View.extend({
 	requesting: false,
 	//this.number: int,
 	initialize: function(options) {
+
 		this.graphic = options.floor;
-		central.registerFloor(this);
+		//central.registerFloor(this);
 
 		this.graphic.doors.stop();
 		this.status = 'close';
@@ -184,7 +195,8 @@ var Floor = Backbone.View.extend({
 		this.graphic.request.addEventListener('click', $.proxy(this.toggleRequest, this));
 
 		//initing some values:
-		this.number = central.floors.length;
+		this.shaft = options.shaft;
+		this.number = options.number;
 	},
 	toggleRequest: function() {
 		if (this.requesting) {
