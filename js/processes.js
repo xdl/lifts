@@ -19,10 +19,6 @@ var Elevator = Backbone.View.extend({
 		//binding registration purposes:
 		this.shaft = options.shaft;
 
-		//console.log('this.shaft:', this.shaft);
-		console.log('this.buttons:', this.buttons);
-		//this.buttons = [];
-
 		this.buttons.push(this.graphic.one);
 		this.buttons.push(this.graphic.two);
 		this.buttons.push(this.graphic.three);
@@ -32,7 +28,6 @@ var Elevator = Backbone.View.extend({
 
 		for (var i = this.buttons.length-1; i >= 0; i--) {
 			this.buttons[i].addEventListener('click', $.proxy(this.emit, this));
-			//console.log('added listener to ', this.shaft, i);
 			this.buttons[i].cursor = 'pointer';
 			this.buttons[i].bkg.stop();
 		}
@@ -49,7 +44,7 @@ var Elevator = Backbone.View.extend({
 		this.graphic.open.cursor = 'pointer';
 
 
-		//initialising:
+		//initialising properties:
 		this.target = 1;
 		this.current = 1;
 		this.speed = 0;
@@ -66,7 +61,6 @@ var Elevator = Backbone.View.extend({
 	emit: function(e) {
 		var message = {};
 		var floor = e.currentTarget.children[1].text;
-		console.log('floor:', floor);
 		message.floor = Number(floor);
 		message.shaft = this.shaft;
 		central.trigger('FLOOR_BUTTON_PRESSED', message);
@@ -112,7 +106,8 @@ var Elevator = Backbone.View.extend({
 var Central = Backbone.View.extend({
 	elevators: {},
 	floors: {},
-	floor_requests: [],
+	floor_requests: {},
+	//floor_requests: [],
 	registerFloor: function(floor) {
 		this.floors.push(floor);
 	},
@@ -127,7 +122,7 @@ var Central = Backbone.View.extend({
 		var ele = this.elevators[m.el];
 		ele.current = m.floor;
 		var enroute_stop = _.indexOf(ele.instructions, ele.current);
-		var floor_requested = _.indexOf(central.floor_requests,ele.current);
+		var floor_requested = _.indexOf(central.floor_requests[m.el],ele.current);
 
 		if (ele.current == ele.target || enroute_stop != -1 || floor_requested != -1) {
 			if (ele.current == ele.target) {
@@ -138,7 +133,19 @@ var Central = Backbone.View.extend({
 				ele.light_off(ele.current);
 			}
 			if (floor_requested != -1) {
-				this.floors[m.floor-1].toggleRequest();
+				this.floors[m.el][m.floor-1].toggleRequest();
+				//get the other shafts to see if there are floor requests needed to be turned off.
+				for (var request in this.floors) {
+					if (this.floors.hasOwnProperty(request) && request != m.el) {
+						var fr = this.floor_requests[request];
+						console.log('request:', request);
+						var r = _.indexOf(fr, ele.current);
+						console.log('r:', r);
+						if (r != -1) {
+							this.floors[request][m.floor-1].toggleRequest();
+						}
+					}
+				}
 			}
 			ele.stop();
 			this.floors[m.el][ele.current-1].open();
@@ -150,10 +157,7 @@ var Central = Backbone.View.extend({
 	},
 	processFloorButton:function(e) {
 
-		console.log('e:', e);
-
 		var elevator = this.elevators[e.shaft];
-		console.log('elevator:', elevator);
 		var instructions = this.elevators[e.shaft].instructions;
 		var floor = e.floor;
 		var shaft = e.shaft
@@ -168,7 +172,6 @@ var Central = Backbone.View.extend({
 
 				elevator.light_up(e.floor);
 				instructions.push(e.floor);
-				console.log('this.elevators.a.instructions:', this.elevators.a.instructions);
 			}
 		} else {
 			//cancel it!
@@ -181,6 +184,7 @@ var Central = Backbone.View.extend({
 var Floor = Backbone.View.extend({
 	requesting: false,
 	//this.number: int,
+	//shaft: char,
 	initialize: function(options) {
 
 		this.graphic = options.floor;
@@ -191,7 +195,6 @@ var Floor = Backbone.View.extend({
 
 		this.graphic.request.cursor = 'pointer';
 		this.graphic.request.stop();
-		//this.graphic.request.addEventListener('click', this.toggleRequest.call(this));
 		this.graphic.request.addEventListener('click', $.proxy(this.toggleRequest, this));
 
 		//initing some values:
@@ -199,12 +202,13 @@ var Floor = Backbone.View.extend({
 		this.number = options.number;
 	},
 	toggleRequest: function() {
+		var shaft = this.shaft;
 		if (this.requesting) {
 			this.light_off();
-			central.floor_requests = _.without(central.floor_requests, this.number);
+			central.floor_requests[shaft] = _.without(central.floor_requests[shaft], this.number);
 		} else {
 			this.light_up();
-			central.floor_requests.push(this.number);
+			central.floor_requests[shaft].push(this.number);
 		}
 		this.requesting = !this.requesting;
 	},

@@ -28,7 +28,10 @@ var initialiseElevators = function() {
 		{ele:exportRoot.panel_c,carriage:exportRoot.car_c,shaft: 'c'}
 	);
 
-	console.log('central.elevators:', central.elevators);
+	central.floor_requests.a = [];
+	central.floor_requests.b = [];
+	central.floor_requests.c = [];
+
 };
 
 var floorMarkers = [57.2,105.2,153.2,201.2,249.2,297.2];
@@ -141,8 +144,15 @@ var tickHandler = function() {
 				if (el.current == el.target && el.instructions.length != 0) {
 					el.target = el.instructions.shift();
 				}
-				else if(el.current == el.target && central.floor_requests != 0) {
-					el.target = central.floor_requests[0];
+				else if(el.current == el.target && central.floor_requests[shaft].length != 0) {
+					if (central.floor_requests[shaft][0] != el.current) {
+						el.target = central.floor_requests[shaft][0];
+					} else {
+						//okay, this is definitely hacky.
+						central.floor_requests[shaft].shift();
+						central.floors[shaft][el.target-1].toggleRequest();
+						central.floors[shaft][el.target-1].open();
+					}
 				}
 
 				//for resuming instructions:
@@ -156,8 +166,6 @@ var tickHandler = function() {
 
 			//for when it has just arrived at a floor:
 			if (floor_check != false && el.speed != 0) {
-				//in case of precision:
-				el.y = floor_check;
 
 				//constructing hardware message:
 				var message = {};
