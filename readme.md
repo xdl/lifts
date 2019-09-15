@@ -1,6 +1,6 @@
 # Lifts
 
-Demo [here](http://xiaodili.com/lifts)
+Demo [here](https://xdl-lifts.s3-eu-west-1.amazonaws.com/lifts.html)
 
 This is a riff off a university coursework in which the mechanism of lifts had to be laid out in pseudocode, using the concept of message passing.
 
